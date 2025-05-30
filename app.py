@@ -4,6 +4,7 @@ import os
 from flask_cors import CORS
 import google.generativeai as genai
 from dotenv import load_dotenv
+import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -34,8 +35,46 @@ FAQ_FILE_PATH = 'C:/Users/quang/Desktop/Code/Blackbelt/chatbot/faqs.json' # Usin
 app = Flask(__name__)
 CORS(app)
 
-# Load FAQs when the application starts
-faqs_data = []
+# In-memory storage for conversation state (for demonstration)
+# In production, use a database (e.g., SQLite, PostgreSQL)
+conversation_state = {}
+# In-memory storage for collected emails (for demonstration)
+# In production, use a secure database
+collected_emails = set()
+# Define a file path for storing emails (for demonstration)
+EMAIL_STORAGE_FILE = 'collected_emails.txt'
+
+# Load existing emails from file on startup (basic)
+if os.path.exists(EMAIL_STORAGE_FILE):
+    with open(EMAIL_STORAGE_FILE, 'r') as f:
+        for line in f:
+            collected_emails.add(line.strip())
+
+def save_email(email):
+    """Saves an email to the in-memory set and appends to a file."""
+    if email not in collected_emails:
+        collected_emails.add(email)
+        try:
+            with open(EMAIL_STORAGE_FILE, 'a') as f:
+                f.write(email + '\n')
+            print(f"Email saved: {email}")
+            return True # Indicates a new email was saved
+        except Exception as e:
+            print(f"Error saving email to file: {e}")
+            return False
+    else:
+        print(f"Email already collected: {email}")
+        return False # Indicates email was already present
+
+def extract_email_from_text(text):
+    """Searches for and returns the first valid email address found in the text."""
+    # A simple regex to find an email pattern anywhere in the text
+    email_regex = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    match = re.search(email_regex, text)
+    if match:
+        return match.group(0)
+    return None
+
 def load_faqs(file_path):
     """Loads FAQs from a JSON file."""
     if not os.path.exists(file_path):
@@ -85,9 +124,43 @@ def get_answer(query, faqs):
 
 @app.route('/ask', methods=['POST'])
 def ask_chatbot():
-    user_input = request.json.get('query')
+    data = request.json
+    user_input = data.get('query')
+    session_id = data.get('session_id', 'default_session') # Get session ID from frontend
+
     if not user_input:
         return jsonify({'answer': 'Error: No query provided.'}), 400
+
+    # Initialize state for new sessions
+    if session_id not in conversation_state:
+        conversation_state[session_id] = {'email_offered': True, 'email_provided': False}
+        # For a new session, the initial greeting is shown by the frontend. Assume the offer was made.
+    
+    state = conversation_state[session_id]
+
+    # Check if we are expecting an email response AND if the input contains a valid email
+    # We assume we are expecting an email if the offer was made and email hasn't been provided yet.
+    if state['email_offered'] and not state['email_provided']:
+        extracted_email = extract_email_from_text(user_input)
+        if extracted_email:
+            if save_email(extracted_email):
+                state['email_provided'] = True # Mark email as provided for this session
+                # In a real app, generate a unique code and store it associated with the email
+                discount_code = "BBTPOFF5"
+                return jsonify({'answer': f"Thank you for subscribing! Here is your $5 discount code: **{discount_code}**. You can now ask me questions about the FAQs."})
+            else:
+                 # Email was already collected, or there was a file saving error
+                 # If already collected, acknowledge it and let them ask questions.
+                 state['email_provided'] = True # Avoid re-prompting for email in this session
+                 return jsonify({'answer': "It looks like that email has already been subscribed. You can now ask me questions about the FAQs."})
+        else:
+            # If no email was extracted, assume the user declined or asked something else.
+            # Mark email as provided to prevent re-prompting in this session.
+            state['email_provided'] = True # User will proceed to FAQ.
+            # Fall through to FAQ answering below.
+
+    # If email was already provided, or if it wasn't provided and no email was extracted this turn,
+    # proceed with regular FAQ answering using the LLM.
 
     answer = get_answer(user_input, faqs_data) # Use the loaded faqs_data and the updated get_answer
     return jsonify({'answer': answer})
@@ -98,5 +171,5 @@ def index():
 
 if __name__ == '__main__':
     # In a production environment, use a production-ready web server like Gunicorn or uWSGI
-    # Before deploying, make sure to handle the GOOGLE_API_KEY securely.
+    # Before deploying, make sure to handle the GOOGLE_API_KEY and email storage securely.
     app.run(debug=True) 
