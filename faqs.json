@@ -1,0 +1,64 @@
+{
+    "faqs": [
+        {
+            "question": "Hi",
+            "answer": "Hello there! I'm the Black Belt Prep AI assistant. How can I help you today?"
+        },
+        {
+            "question": "Hello",
+            "answer": "Hello there! I'm the Black Belt Prep AI assistant. How can I help you today?"
+        },
+        {
+            "question": "What is Black Belt Prep?",
+            "answer": "Black Belt Prep is a comprehensive question bank designed to help you prepare for your PANCE exam. It contains practice questions, detailed explanations, custom quizzes, weekly personalized study plans, and much more.<br>The question bank is available for a one-time payment of $299 for one-year access, or $39.99 for monthly subscription. You can purchase it by clicking on this link: https://blackbeltprep.com/moodle/course/view.php?id=9."
+        },
+        {
+            "question": "How do I access the question bank?",
+            "answer": "You can access the question bank by logging into your account. Click here to login or register: https://blackbeltprep.com/moodle/login/index.php"
+        },
+        {
+            "question": "How to register?",
+            "answer": "You can register by clicking on this link: https://blackbeltprep.com/moodle/login/signup.php"
+        },
+        {
+            "question": "How to login?",
+            "answer": "You can login by clicking on this link: https://blackbeltprep.com/moodle/login/index.php"
+        },
+        {
+            "question": "Are the questions updated regularly?",
+            "answer": "Yes, our question bank is regularly updated to reflect the latest exam patterns and content. Click here to go to the question bank: https://blackbeltprep.com/moodle/course/view.php?id=9"
+        },
+        {
+            "question": "Can I track my progress?",
+            "answer": "Yes, the platform provides detailed analytics and progress tracking. You can view your performance metrics, identify weak areas, and track your improvement over time. Here is the link to your Dashboard: https://blackbeltprep.com/moodle/my/"
+        },
+        {
+            "question": "What topics are covered in the question bank?",
+            "answer": "The question bank covers all major topics required for the PANCE exam, including core concepts, advanced techniques, and practical applications. Each topic includes multiple practice questions, detailed explanations and visualizations."
+        },
+        {
+            "question": "How can I get help if I have questions?",
+            "answer": "I can help you with most common questions. If you have any other questions, please contact our support team through Contact page: https://blackbeltprep.com/contact.html"
+        },
+        {
+            "question": "How much does the PANCE course cost on Black Belt Prep?",
+            "answer": "The PANCE course is available for a one-time payment of $399 for one-year access, or $59 for monthly subscription. You can purchase it by clicking on this link: https://blackbeltprep.com/moodle/course/view.php?id=9."
+        },
+        {
+            "question": "How much does it cost?",
+            "answer": "The PANCE course is available for a one-time payment of $399 for one-year access, or $59 for monthly subscription. You can purchase it by clicking on this link: https://blackbeltprep.com/moodle/course/view.php?id=9."
+        },
+        {
+            "question": "How to refund?",
+            "answer": "You can possibly refund the PANCE course by sending an email to us through the Contact page: https://blackbeltprep.com/contact.html. Make sure to include a header with the subject 'Refund Request' and your name, email, and the reason for refund. We will process your request within 48 hours if the reason is valid."
+        },
+        {
+            "question": "How many questions are there in the question bank?",
+            "answer": "There are 1000+ questions in the question bank. You can view the question bank by clicking on this link: https://blackbeltprep.com/moodle/course/view.php?id=9"
+        },
+        {
+            "question": "Total questions?",
+            "answer": "There are 1000+ questions in the question bank. You can view the question bank by clicking on this link: https://blackbeltprep.com/moodle/course/view.php?id=9"
+        }
+    ]
+}
