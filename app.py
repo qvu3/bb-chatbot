@@ -30,7 +30,7 @@ else:
     )
 
 # Define the path to the faqs.json file (use the corrected path)
-FAQ_FILE_PATH = 'C:/Users/quang/Desktop/Code/Blackbelt/chatbot/faqs.json' # Using the absolute path you confirmed
+FAQ_FILE_PATH = '../faqs.json' # Use the relative path from chatbot/ to the root faqs.json
 
 app = Flask(__name__)
 CORS(app)
