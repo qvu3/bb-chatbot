@@ -55,10 +55,7 @@ else:
         email = Column(String, unique=True, index=True)
 
     # Create database tables (if they don't exist)
-    @app.before_first_request
-    def create_tables():
-        if db_engine:
-            Base.metadata.create_all(bind=db_engine)
+    Base.metadata.create_all(bind=db_engine)
 
 # Define the path to the faqs.json file (use the corrected path)
 FAQ_FILE_PATH = './faqs.json' # Use the relative path from chatbot/ to the root faqs.json
@@ -230,7 +227,7 @@ def ask_chatbot():
 def index():
     return "Chatbot backend is running."
 
-if __name__ == '__main__':
-    # In a production environment, use a production-ready web server like Gunicorn or uWSGI
-    # Before deploying, make sure to handle the GOOGLE_API_KEY and email storage securely.
-    app.run(debug=True) 
+# if __name__ == '__main__':
+#     # In a production environment, use a production-ready web server like Gunicorn or uWSGI
+#     # Before deploying, make sure to handle the GOOGLE_API_KEY and email storage securely.
+#     # app.run(debug=True) 
