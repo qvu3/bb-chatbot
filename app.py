@@ -244,7 +244,9 @@ def send_support_email(user_query: str, user_email: str | None = None):
     try:
         # Ensure port is an integer
         port = int(EMAIL_PORT)
-        with smtplib.SMTP_SSL(EMAIL_HOST, port) as smtp:
+        # Use SMTP and starttls for a more common secure connection
+        with smtplib.SMTP(EMAIL_HOST, port) as smtp:
+            smtp.starttls() # Upgrade the connection to a secure TLS connection
             smtp.login(EMAIL_USERNAME, EMAIL_PASSWORD)
             smtp.send_message(msg)
         print(f"Support email sent for query: {user_query}")
