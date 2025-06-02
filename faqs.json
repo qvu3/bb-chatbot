@@ -50,7 +50,7 @@
         },
         {
             "question": "How to refund?",
-            "answer": "Refund requests must be made within 5 calendar days of purchase. Refund requests beyond this period will not be honored."
+            "answer": "Refund requests must be made within 5 calendar days of purchase. Refund requests beyond this period will not be honored. Send an email to info@blackbelttestprep.com to request a refund."
         },
         {
             "question": "How many questions are there in the question bank?",
@@ -71,6 +71,13 @@
         {
             "question": "What is the business identification of Black Belt Test Prep?",
             "answer": "Black Belt Test Prep is a Doing Business As (DBA) entity of Two Doves Harvest, LLC, a Florida-based corporation. Payments and invoices will reflect the name Two Doves Harvest, LLC."
+        },
+        {
+            "question": "Termination of Subscription?",
+            "answer": "Black Belt Test Prep reserves the right to immediately terminate any subscription, without refund, if the customer violates any terms outlined in this agreement."
+        },
+        {
+            
         }
     ]
 }
