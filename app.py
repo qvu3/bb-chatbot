@@ -32,6 +32,9 @@ else:
         generation_config=generation_config,
     )
 
+app = Flask(__name__)
+CORS(app)
+
 # Database Configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
