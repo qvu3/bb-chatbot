@@ -3,3 +3,5 @@ Flask-Cors
 google-generativeai
 python-dotenv
 gunicorn
+SQLAlchemy
+psycopg2-binary

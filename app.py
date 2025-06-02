@@ -5,6 +5,9 @@ from flask_cors import CORS
 import google.generativeai as genai
 from dotenv import load_dotenv
 import re
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,6 +32,31 @@ else:
         generation_config=generation_config,
     )
 
+# Database Configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    print("Error: DATABASE_URL not found in .env file.")
+    # Handle this error appropriately, maybe exit or disable email collection
+    # For now, we'll print and proceed, but email saving won't work.
+    db_engine = None
+else:
+    db_engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
+    Base = declarative_base()
+
+    # Define the Email model
+    class Email(Base):
+        __tablename__ = "emails"
+
+        id = Column(Integer, primary_key=True, index=True)
+        email = Column(String, unique=True, index=True)
+
+    # Create database tables (if they don't exist)
+    @app.before_first_request
+    def create_tables():
+        if db_engine:
+            Base.metadata.create_all(bind=db_engine)
+
 # Define the path to the faqs.json file (use the corrected path)
 FAQ_FILE_PATH = './faqs.json' # Use the relative path from chatbot/ to the root faqs.json
 
@@ -38,33 +66,55 @@ CORS(app)
 # In-memory storage for conversation state (for demonstration)
 # In production, use a database (e.g., SQLite, PostgreSQL)
 conversation_state = {}
+
+# Remove file-based email storage
 # In-memory storage for collected emails (for demonstration)
 # In production, use a secure database
-collected_emails = set()
+# collected_emails = set()
 # Define a file path for storing emails (for demonstration)
-EMAIL_STORAGE_FILE = 'collected_emails.txt'
+# EMAIL_STORAGE_FILE = 'collected_emails.txt'
 
+# Remove file-based email loading
 # Load existing emails from file on startup (basic)
-if os.path.exists(EMAIL_STORAGE_FILE):
-    with open(EMAIL_STORAGE_FILE, 'r') as f:
-        for line in f:
-            collected_emails.add(line.strip())
+# if os.path.exists(EMAIL_STORAGE_FILE):
+#     with open(EMAIL_STORAGE_FILE, 'r') as f:
+#         for line in f:
+#             collected_emails.add(line.strip())
 
-def save_email(email):
-    """Saves an email to the in-memory set and appends to a file."""
-    if email not in collected_emails:
-        collected_emails.add(email)
-        try:
-            with open(EMAIL_STORAGE_FILE, 'a') as f:
-                f.write(email + '\n')
-            print(f"Email saved: {email}")
-            return True # Indicates a new email was saved
-        except Exception as e:
-            print(f"Error saving email to file: {e}")
-            return False
-    else:
-        print(f"Email already collected: {email}")
-        return False # Indicates email was already present
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def save_email(email: str):
+    """Saves an email to the database."""
+    if not db_engine:
+        print("Database engine not configured, cannot save email.")
+        return False
+
+    db = SessionLocal()
+    try:
+        # Check if email already exists
+        existing_email = db.query(Email).filter(Email.email == email).first()
+        if existing_email:
+            print(f"Email already collected: {email}")
+            return False # Indicates email was already present
+
+        # Add new email
+        new_email = Email(email=email)
+        db.add(new_email)
+        db.commit()
+        db.refresh(new_email)
+        print(f"Email saved to database: {email}")
+        return True # Indicates a new email was saved
+    except Exception as e:
+        db.rollback()
+        print(f"Error saving email to database: {e}")
+        return False
+    finally:
+        db.close()
 
 def extract_email_from_text(text):
     """Searches for and returns the first valid email address found in the text."""
