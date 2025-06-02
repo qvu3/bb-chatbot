@@ -10,6 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from email.message import EmailMessage
 import smtplib
+from datetime import datetime, time
+import requests # For sending webhook notifications
 
 # Load environment variables from .env file
 load_dotenv()
@@ -65,6 +67,7 @@ EMAIL_PORT = os.getenv('EMAIL_PORT')
 EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'info@blackbelttestprep.com') # Default to support email
+SUPPORT_WEBHOOK_URL = os.getenv('SUPPORT_WEBHOOK_URL')
 
 # Define the path to the faqs.json file (use the corrected path)
 FAQ_FILE_PATH = './faqs.json' # Use the relative path from chatbot/ to the root faqs.json
@@ -184,8 +187,42 @@ def get_answer(query, faqs):
         print(f"Error generating response: {e}")
         return "Sorry, I encountered an error while trying to find an answer."
 
+def is_working_hours():
+    """Checks if the current time is within working hours (9 AM - 12 PM and 1 PM - 5:30 PM PT)."""
+    now = datetime.now().time()
+    
+    # Define working hour ranges
+    morning_start = time(9, 0)  # 9:00 AM
+    morning_end = time(12, 0)   # 12:00 PM (noon)
+    afternoon_start = time(13, 0) # 1:00 PM
+    afternoon_end = time(17, 30)  # 5:30 PM
+    
+    # Check if current time is within either range
+    in_morning_hours = morning_start <= now <= morning_end
+    in_afternoon_hours = afternoon_start <= now <= afternoon_end
+    
+    return in_morning_hours or in_afternoon_hours
+
+def send_webhook_notification(user_query: str, user_email: str | None = None):
+    """Sends a notification to a webhook URL about a user needing support."""
+    if not SUPPORT_WEBHOOK_URL:
+        print("Support webhook URL not configured.")
+        return
+    
+    payload = {
+        "text": f"User needs support: {user_query}",
+        "user_email": user_email if user_email else "Not provided"
+    }
+    
+    try:
+        response = requests.post(SUPPORT_WEBHOOK_URL, json=payload)
+        response.raise_for_status() # Raise an exception for bad status codes
+        print(f"Webhook notification sent for query: {user_query}")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to send webhook notification: {e}")
+
 def send_support_email(user_query: str, user_email: str | None = None):
-    """Sends an email to the support team with the user's unanswered query."""
+    """Saves an email to the database."""
     if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USERNAME, EMAIL_PASSWORD]):
         print("Email sending is not fully configured (missing env vars).")
         return
@@ -257,7 +294,13 @@ def ask_chatbot():
         # Try to use the extracted email if available from this turn's input
         # Otherwise, user_email will be None
         user_email_for_support = extracted_email if extracted_email else None
-        send_support_email(user_input, user_email_for_support)
+        
+        if is_working_hours():
+            send_webhook_notification(user_input, user_email_for_support)
+            answer = "Our support team is currently offline. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
+        else:
+            send_support_email(user_input, user_email_for_support)
+            answer = "Our support team is currently offline. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
 
     # Extract URLs from the answer
     urls = extract_url_from_text(answer)
