@@ -184,6 +184,8 @@ def ask_chatbot():
     if not user_input:
         return jsonify({'answer': 'Error: No query provided.'}), 400
 
+    print(f"Received user input: {user_input}") # Debug print
+
     # Initialize state for new sessions
     if session_id not in conversation_state:
         conversation_state[session_id] = {'email_offered': True, 'email_provided': False}
@@ -194,7 +196,9 @@ def ask_chatbot():
     # Check if we are expecting an email response AND if the input contains a valid email
     # We assume we are expecting an email if the offer was made and email hasn't been provided yet.
     if state['email_offered'] and not state['email_provided']:
+        print(f"Email offered: {state['email_offered']}, Email provided: {state['email_provided']}") # Debug print
         extracted_email = extract_email_from_text(user_input)
+        print(f"Extracted email: {extracted_email}") # Debug print
         if extracted_email:
             if save_email(extracted_email):
                 state['email_provided'] = True # Mark email as provided for this session
