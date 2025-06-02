@@ -179,46 +179,29 @@ def get_answer(query, faqs):
 def ask_chatbot():
     data = request.json
     user_input = data.get('query')
-    session_id = data.get('session_id', 'default_session') # Get session ID from frontend
+    # Removed session_id and conversation_state as they are no longer needed for this email handling logic
+    # session_id = data.get('session_id', 'default_session') 
 
     if not user_input:
         return jsonify({'answer': 'Error: No query provided.'}), 400
 
     print(f"Received user input: {user_input}") # Debug print
 
-    # Initialize state for new sessions
-    if session_id not in conversation_state:
-        conversation_state[session_id] = {'email_offered': True, 'email_provided': False}
-        # For a new session, the initial greeting is shown by the frontend. Assume the offer was made.
-    
-    state = conversation_state[session_id]
+    extracted_email = extract_email_from_text(user_input)
+    print(f"Extracted email: {extracted_email}") # Debug print
 
-    # Check if we are expecting an email response AND if the input contains a valid email
-    # We assume we are expecting an email if the offer was made and email hasn't been provided yet.
-    if state['email_offered'] and not state['email_provided']:
-        print(f"Email offered: {state['email_offered']}, Email provided: {state['email_provided']}") # Debug print
-        extracted_email = extract_email_from_text(user_input)
-        print(f"Extracted email: {extracted_email}") # Debug print
-        if extracted_email:
-            if save_email(extracted_email):
-                state['email_provided'] = True # Mark email as provided for this session
-                # In a real app, generate a unique code and store it associated with the email
-                discount_code = "BBTPOFF5"
-                return jsonify({'answer': f"Thank you for subscribing! Here is your $5 discount code: **{discount_code}**. You can now ask me questions about the FAQs."})
-            else:
-                 # Email was already collected, or there was a file saving error
-                 # If already collected, acknowledge it and let them ask questions.
-                 state['email_provided'] = True # Avoid re-prompting for email in this session
-                 return jsonify({'answer': "It looks like that email has already been subscribed. You can now ask me questions about the FAQs."})
+    if extracted_email:
+        if save_email(extracted_email):
+            # In a real app, generate a unique code and store it associated with the email
+            discount_code = "BBTPOFF5"
+            return jsonify({'answer': f"Thank you for subscribing! Here is your $5 discount code: **{discount_code}**. You can now ask me questions about the FAQs."})
         else:
-            # If no email was extracted, assume the user declined or asked something else.
-            # Mark email as provided to prevent re-prompting in this session.
-            state['email_provided'] = True # User will proceed to FAQ.
-            # Fall through to FAQ answering below.
-
-    # If email was already provided, or if it wasn't provided and no email was extracted this turn,
+            # Email was already collected, or there was a file saving error
+            # If already collected, acknowledge it and let them ask questions.
+            return jsonify({'answer': "It looks like that email has already been subscribed. You can now ask me questions about the FAQs."})
+    
+    # If no email was extracted, or if the email was handled (and returned),
     # proceed with regular FAQ answering using the LLM.
-
     answer = get_answer(user_input, faqs_data) # Use the loaded faqs_data and the updated get_answer
     
     # Extract URLs from the answer
