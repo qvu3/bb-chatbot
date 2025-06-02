@@ -8,6 +8,8 @@ import re
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from email.message import EmailMessage
+import smtplib
 
 # Load environment variables from .env file
 load_dotenv()
@@ -56,6 +58,13 @@ else:
 
     # Create database tables (if they don't exist)
     Base.metadata.create_all(bind=db_engine)
+
+# Email Configuration
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = os.getenv('EMAIL_PORT')
+EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'info@blackbelttestprep.com') # Default to support email
 
 # Define the path to the faqs.json file (use the corrected path)
 FAQ_FILE_PATH = './faqs.json' # Use the relative path from chatbot/ to the root faqs.json
@@ -175,6 +184,36 @@ def get_answer(query, faqs):
         print(f"Error generating response: {e}")
         return "Sorry, I encountered an error while trying to find an answer."
 
+def send_support_email(user_query: str, user_email: str | None = None):
+    """Sends an email to the support team with the user's unanswered query."""
+    if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USERNAME, EMAIL_PASSWORD]):
+        print("Email sending is not fully configured (missing env vars).")
+        return
+
+    subject = "Unanswered Chatbot Question"
+    if user_email:
+        subject += f" from {user_email}"
+    
+    body = f"The following user query could not be answered by the chatbot:\n\nUser Query: {user_query}\n\n"
+    if user_email:
+        body += f"User's Email (if provided): {user_email}\n"
+
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = EMAIL_USERNAME
+    msg['To'] = SUPPORT_EMAIL
+
+    try:
+        # Ensure port is an integer
+        port = int(EMAIL_PORT)
+        with smtplib.SMTP_SSL(EMAIL_HOST, port) as smtp:
+            smtp.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+            smtp.send_message(msg)
+        print(f"Support email sent for query: {user_query}")
+    except Exception as e:
+        print(f"Failed to send support email: {e}")
+
 @app.route('/ask', methods=['POST'])
 def ask_chatbot():
     data = request.json
@@ -203,7 +242,23 @@ def ask_chatbot():
     # If no email was extracted, or if the email was handled (and returned),
     # proceed with regular FAQ answering using the LLM.
     answer = get_answer(user_input, faqs_data) # Use the loaded faqs_data and the updated get_answer
+
+    # Check if the answer indicates an inability to find information
+    # and send a support email if so.
+    unanswered_phrases = [
+        "cannot find an answer",
+        "couldn't generate a response",
+        "encountered an error",
+        "visit the contact page"
+    ]
     
+    # Check if any of the unanswered phrases are in the answer, case-insensitively
+    if any(phrase in answer.lower() for phrase in unanswered_phrases):
+        # Try to use the extracted email if available from this turn's input
+        # Otherwise, user_email will be None
+        user_email_for_support = extracted_email if extracted_email else None
+        send_support_email(user_input, user_email_for_support)
+
     # Extract URLs from the answer
     urls = extract_url_from_text(answer)
 
