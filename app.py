@@ -75,6 +75,12 @@ def extract_email_from_text(text):
         return match.group(0)
     return None
 
+def extract_url_from_text(text):
+    """Searches for and returns all valid URLs found in the text."""
+    # A simple regex to find URLs. This regex might need refinement depending on the exact URL formats expected.
+    url_regex = r'https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*'
+    return re.findall(url_regex, text)
+
 def load_faqs(file_path):
     """Loads FAQs from a JSON file."""
     if not os.path.exists(file_path):
@@ -163,7 +169,12 @@ def ask_chatbot():
     # proceed with regular FAQ answering using the LLM.
 
     answer = get_answer(user_input, faqs_data) # Use the loaded faqs_data and the updated get_answer
-    return jsonify({'answer': answer})
+    
+    # Extract URLs from the answer
+    urls = extract_url_from_text(answer)
+
+    # Return the answer and the extracted URLs
+    return jsonify({'answer': answer, 'urls': urls})
 
 @app.route('/')
 def index():
