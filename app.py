@@ -12,6 +12,7 @@ from email.message import EmailMessage
 import smtplib
 from datetime import datetime, time
 import requests # For sending webhook notifications
+from pytz import timezone # Import timezone from pytz
 
 # Load environment variables from .env file
 load_dotenv()
@@ -188,8 +189,11 @@ def get_answer(query, faqs):
         return "Sorry, I encountered an error while trying to find an answer."
 
 def is_working_hours():
-    """Checks if the current time is within working hours (9 AM - 12 PM and 1 PM - 5:30 PM PT)."""
-    now = datetime.now().time()
+    """Checks if the current time is within working hours (9 AM - 12 PM and 1 PM - 5:30 PM ET)."""
+    # Define the Eastern Timezone
+    eastern_time = timezone('America/New_York')
+    now_et = datetime.now(eastern_time)
+    current_time = now_et.time()
     
     # Define working hour ranges
     morning_start = time(9, 0)  # 9:00 AM
@@ -198,8 +202,8 @@ def is_working_hours():
     afternoon_end = time(17, 30)  # 5:30 PM
     
     # Check if current time is within either range
-    in_morning_hours = morning_start <= now <= morning_end
-    in_afternoon_hours = afternoon_start <= now <= afternoon_end
+    in_morning_hours = morning_start <= current_time <= morning_end
+    in_afternoon_hours = afternoon_start <= current_time <= afternoon_end
     
     return in_morning_hours or in_afternoon_hours
 
@@ -297,12 +301,9 @@ def ask_chatbot():
         # Otherwise, user_email will be None
         user_email_for_support = extracted_email if extracted_email else None
         
-        if is_working_hours():
-            send_webhook_notification(user_input, user_email_for_support)
-            answer = "Our support team is currently offline. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
-        else:
-            send_support_email(user_input, user_email_for_support)
-            answer = "Our support team is currently offline. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
+        send_webhook_notification(user_input, user_email_for_support) # Send webhook notification
+        send_support_email(user_input, user_email_for_support) # Send email
+        answer = "Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
 
     # Extract URLs from the answer
     urls = extract_url_from_text(answer)
