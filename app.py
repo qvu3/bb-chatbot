@@ -3,6 +3,7 @@ import json
 import os
 from flask_cors import CORS
 import google.generativeai as genai
+import openai
 from dotenv import load_dotenv
 import re
 from sqlalchemy import create_engine, Column, Integer, String
@@ -16,25 +17,32 @@ from pytz import timezone # Import timezone from pytz
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure Generative AI
-API_KEY = os.getenv('GOOGLE_API_KEY')
-if not API_KEY:
-    print("Error: GOOGLE_API_KEY not found in .env file.")
-    # Handle this error appropriately in a real application
-    # For now, we'll just print and proceed, but the LLM part won't work.
+# Configure API
+API_PROVIDER = os.getenv('API_PROVIDER', 'gemini') # Default to Gemini
+
+# Configure Generative AI (Gemini)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    print("Error: GEMINI_API_KEY not found in .env file.")
 else:
-    genai.configure(api_key=API_KEY)
-    # Choose a model
+    genai.configure(api_key=GEMINI_API_KEY)
     generation_config = {
         "temperature": 0.5,
         "top_p": 1,
         "top_k": 1,
         "max_output_tokens": 2048,
     }
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash-preview-05-20", # Or another suitable model
+    gemini_model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
         generation_config=generation_config,
     )
+
+# Configure OpenAI
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    print("Error: OPENAI_API_KEY not found in .env file.")
+else:
+    openai.api_key = OPENAI_API_KEY
 
 app = Flask(__name__)
 CORS(app)
@@ -170,10 +178,7 @@ def load_faqs(file_path):
 faqs_data = load_faqs(FAQ_FILE_PATH)
 
 def get_answer(query, faqs):
-    """Finds an answer for a given query using the LLM and FAQs."""
-    if not API_KEY:
-        return "Sorry, the chatbot is not configured correctly (API key missing)."
-        
+    """Finds an answer for a given query using the selected LLM and FAQs."""
     # Format FAQs for the prompt
     faqs_text = ""
     for faq in faqs:
@@ -193,13 +198,27 @@ def get_answer(query, faqs):
     Chatbot Answer:"""
 
     try:
-        response = model.generate_content(prompt)
-        # Check if the response has content and extract the text
-        if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
-             # Join the text parts of the response
-            return "".join(part.text for part in response.candidates[0].content.parts)
+        if API_PROVIDER == 'openai':
+            if not OPENAI_API_KEY:
+                return "Sorry, the chatbot is not configured correctly (OpenAI API key missing)."
+            response = openai.Completion.create(
+                model="text-davinci-003",  # Or another suitable model
+                prompt=prompt,
+                max_tokens=150
+            )
+            return response.choices[0].text.strip()
+        
+        elif API_PROVIDER == 'gemini':
+            if not GEMINI_API_KEY:
+                return "Sorry, the chatbot is not configured correctly (Gemini API key missing)."
+            response = gemini_model.generate_content(prompt)
+            if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+                return "".join(part.text for part in response.candidates[0].content.parts)
+            else:
+                return "Sorry, I couldn't generate a response at this time."
+
         else:
-            return "Sorry, I couldn't generate a response at this time."
+            return "Sorry, the chatbot is not configured with a valid API provider."
 
     except Exception as e:
         print(f"Error generating response: {e}")

@@ -1,6 +1,7 @@
 Flask
 Flask-Cors
 google-generativeai
+openai
 python-dotenv
 gunicorn
 SQLAlchemy
