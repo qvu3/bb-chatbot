@@ -3,7 +3,7 @@ import json
 import os
 from flask_cors import CORS
 import google.generativeai as genai
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 import re
 from sqlalchemy import create_engine, Column, Integer, String
@@ -33,7 +33,7 @@ else:
         "max_output_tokens": 2048,
     }
     gemini_model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.5-flash-preview-05-20",
         generation_config=generation_config,
     )
 
@@ -41,8 +41,9 @@ else:
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     print("Error: OPENAI_API_KEY not found in .env file.")
+    openai_client = None
 else:
-    openai.api_key = OPENAI_API_KEY
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 app = Flask(__name__)
 CORS(app)
@@ -199,14 +200,29 @@ def get_answer(query, faqs):
 
     try:
         if API_PROVIDER == 'openai':
-            if not OPENAI_API_KEY:
+            if not openai_client:
                 return "Sorry, the chatbot is not configured correctly (OpenAI API key missing)."
-            response = openai.Completion.create(
-                model="text-davinci-003",  # Or another suitable model
-                prompt=prompt,
-                max_tokens=150
+
+            system_prompt = """You are a helpful AI assistant for the Black Belt Test Prep question bank. 
+Your goal is to answer user questions based *only* on the following list of Frequently Asked Questions (FAQs).
+If a user asks a question that cannot be answered from the provided FAQs, politely state that you cannot find the answer in the FAQ and suggest they visit the contact page."""
+
+            user_prompt = f"""Here are the FAQs:
+{faqs_text}
+
+User Question: {query}
+
+Based *only* on the FAQs provided, please answer the User Question:
+Chatbot Answer:"""
+            
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
             )
-            return response.choices[0].text.strip()
+            return response.choices[0].message.content.strip()
         
         elif API_PROVIDER == 'gemini':
             if not GEMINI_API_KEY:
