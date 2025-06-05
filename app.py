@@ -11,7 +11,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from email.message import EmailMessage
 import smtplib
 from datetime import datetime, time
-import requests # For sending webhook notifications
 from pytz import timezone # Import timezone from pytz
 
 # Load environment variables from .env file
@@ -225,24 +224,6 @@ def is_working_hours():
     
     return in_morning_hours or in_afternoon_hours
 
-def send_webhook_notification(user_query: str, user_email: str | None = None):
-    """Sends a notification to a webhook URL about a user needing support."""
-    if not SUPPORT_WEBHOOK_URL:
-        print("Support webhook URL not configured.")
-        return
-    
-    payload = {
-        "text": f"User needs support: {user_query}",
-        "user_email": user_email if user_email else "Not provided"
-    }
-    
-    try:
-        response = requests.post(SUPPORT_WEBHOOK_URL, json=payload)
-        response.raise_for_status() # Raise an exception for bad status codes
-        print(f"Webhook notification sent for query: {user_query}")
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to send webhook notification: {e}")
-
 def send_support_email(user_query: str, user_email: str | None = None, user_name: str | None = None):
     """Saves an email to the database."""
     if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USERNAME, EMAIL_PASSWORD]):
@@ -302,7 +283,6 @@ def ask_chatbot():
 
         if user_name and user_email:
             original_query = session_context.get('original_query', 'N/A')
-            send_webhook_notification(original_query, user_email, user_name)
             send_support_email(original_query, user_email, user_name)
             del conversation_state[session_id] # Clear state after sending
             return jsonify({'answer': "Thank you for providing your information. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."})
