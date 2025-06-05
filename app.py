@@ -74,7 +74,6 @@ SUPPORT_WEBHOOK_URL = os.getenv('SUPPORT_WEBHOOK_URL')
 FAQ_FILE_PATH = './faqs.json' # Use the relative path from chatbot/ to the root faqs.json
 
 # In-memory storage for conversation state (for demonstration)
-# In production, use a database (e.g., SQLite, PostgreSQL)
 conversation_state = {}
 
 # Remove file-based email storage
@@ -140,6 +139,25 @@ def extract_url_from_text(text):
     # A simple regex to find URLs. This regex might need refinement depending on the exact URL formats expected.
     url_regex = r'https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*'
     return re.findall(url_regex, text)
+
+def extract_name_from_text(text):
+    """Attempts to extract a name from the text. This is a very basic implementation and might need refinement.
+    It looks for capitalized words that are not common English words (e.g., pronouns, prepositions).
+    This can be improved with more sophisticated NLP techniques if needed.
+    """
+    # Split the text into words and filter for capitalized words
+    words = re.findall(r'\b[A-Z][a-z]*\b', text)
+    # Filter out common short words that are often capitalized at sentence start
+    common_words = {'I', 'A', 'The', 'And', 'Or', 'But', 'For', 'Nor', 'On', 'At', 'To', 'By', 'With'}
+    name_candidates = [word for word in words if word not in common_words]
+    
+    # A very simple heuristic: if there are multiple capitalized words, join them as a name.
+    # Otherwise, it might be just a capitalized word at the start of a sentence.
+    if len(name_candidates) > 1:
+        return " ".join(name_candidates)
+    elif len(name_candidates) == 1 and len(name_candidates[0]) > 2: # Avoid single-letter or two-letter words
+        return name_candidates[0]
+    return None
 
 def load_faqs(file_path):
     """Loads FAQs from a JSON file."""
@@ -225,7 +243,7 @@ def send_webhook_notification(user_query: str, user_email: str | None = None):
     except requests.exceptions.RequestException as e:
         print(f"Failed to send webhook notification: {e}")
 
-def send_support_email(user_query: str, user_email: str | None = None):
+def send_support_email(user_query: str, user_email: str | None = None, user_name: str | None = None):
     """Saves an email to the database."""
     if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USERNAME, EMAIL_PASSWORD]):
         print("Email sending is not fully configured (missing env vars).")
@@ -234,10 +252,14 @@ def send_support_email(user_query: str, user_email: str | None = None):
     subject = "Unanswered Chatbot Question"
     if user_email:
         subject += f" from {user_email}"
+    if user_name:
+        subject += f" ({user_name})"
     
     body = f"The following user query could not be answered by the chatbot:\n\nUser Query: {user_query}\n\n"
     if user_email:
         body += f"User's Email (if provided): {user_email}\n"
+    if user_name:
+        body += f"User's Name (if provided): {user_name}\n"
 
     msg = EmailMessage()
     msg.set_content(body)
@@ -261,8 +283,7 @@ def send_support_email(user_query: str, user_email: str | None = None):
 def ask_chatbot():
     data = request.json
     user_input = data.get('query')
-    # Removed session_id and conversation_state as they are no longer needed for this email handling logic
-    # session_id = data.get('session_id', 'default_session') 
+    session_id = data.get('session_id', 'default_session') 
 
     if not user_input:
         return jsonify({'answer': 'Error: No query provided.'}), 400
@@ -272,6 +293,27 @@ def ask_chatbot():
     extracted_email = extract_email_from_text(user_input)
     print(f"Extracted email: {extracted_email}") # Debug print
 
+    # Check if the bot is waiting for contact information for this session
+    session_context = conversation_state.get(session_id, {})
+
+    if session_context.get('waiting_for_contact'):
+        user_name = extract_name_from_text(user_input)
+        user_email = extract_email_from_text(user_input)
+
+        if user_name and user_email:
+            original_query = session_context.get('original_query', 'N/A')
+            send_webhook_notification(original_query, user_email, user_name)
+            send_support_email(original_query, user_email, user_name)
+            del conversation_state[session_id] # Clear state after sending
+            return jsonify({'answer': "Thank you for providing your information. Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."})
+        elif "no" in user_input.lower() or "don't want to share" in user_input.lower():
+            del conversation_state[session_id]
+            return jsonify({'answer': "Understood. I cannot forward your question without your contact information."})
+        else:
+            return jsonify({'answer': "I still need your name and email to forward your question. Please provide them."})
+
+    # If no email was extracted in the current turn, or if the email was handled (and returned for subscription),
+    # proceed with regular FAQ answering using the LLM.
     if extracted_email:
         if save_email(extracted_email):
             # In a real app, generate a unique code and store it associated with the email
@@ -281,13 +323,11 @@ def ask_chatbot():
             # Email was already collected, or there was a file saving error
             # If already collected, acknowledge it and let them ask questions.
             return jsonify({'answer': "It looks like that email has already been subscribed. You can now ask me questions about the FAQs."})
-    
-    # If no email was extracted, or if the email was handled (and returned),
-    # proceed with regular FAQ answering using the LLM.
+
     answer = get_answer(user_input, faqs_data) # Use the loaded faqs_data and the updated get_answer
 
     # Check if the answer indicates an inability to find information
-    # and send a support email if so.
+    # and prompt for contact info if so.
     unanswered_phrases = [
         "cannot find an answer",
         "couldn't generate a response",
@@ -297,13 +337,12 @@ def ask_chatbot():
     
     # Check if any of the unanswered phrases are in the answer, case-insensitively
     if any(phrase in answer.lower() for phrase in unanswered_phrases):
-        # Try to use the extracted email if available from this turn's input
-        # Otherwise, user_email will be None
-        user_email_for_support = extracted_email if extracted_email else None
-        
-        send_webhook_notification(user_input, user_email_for_support) # Send webhook notification
-        send_support_email(user_input, user_email_for_support) # Send email
-        answer = "Your question has been forwarded to info@blackbelttestprep.com, and we will get back to you as soon as possible."
+        # Store the original query and set flag to wait for contact info
+        conversation_state[session_id] = {
+            'waiting_for_contact': True,
+            'original_query': user_input
+        }
+        return jsonify({'answer': "I cannot find an answer to your question in our FAQs. To forward your question to our support team, please provide your name and email address."})
 
     # Extract URLs from the answer
     urls = extract_url_from_text(answer)
