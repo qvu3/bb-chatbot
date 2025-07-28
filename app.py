@@ -144,9 +144,16 @@ def extract_email_from_text(text):
 
 def extract_url_from_text(text):
     """Searches for and returns all valid URLs found in the text."""
-    # A simple regex to find URLs. This regex might need refinement depending on the exact URL formats expected.
-    url_regex = r'https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*'
-    return re.findall(url_regex, text)
+    # A regex to find URLs that excludes trailing punctuation commonly found at end of sentences
+    url_regex = r'https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*?(?=[.!?;,]?\s|[.!?;,]?$|$)'
+    urls = re.findall(url_regex, text)
+    # Clean up any trailing punctuation that might still be captured
+    cleaned_urls = []
+    for url in urls:
+        # Remove trailing punctuation
+        url = re.sub(r'[.!?;,]+$', '', url)
+        cleaned_urls.append(url)
+    return cleaned_urls
 
 def extract_name_from_text(text):
     """Attempts to extract a name from the text. This is a very basic implementation and might need refinement.
