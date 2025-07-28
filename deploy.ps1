@@ -7,7 +7,7 @@ $AWS_ACCOUNT_ID = "822815312360"
 $ECR_REPO = "bb-chatbot"
 $ECR_URL = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO"
 $CLUSTER_NAME = "BB-chatbot"
-$SERVICE_NAME = "bb-chatbot-task-definition-service-ghlsbzt0"
+$SERVICE_NAME = "bb-chatbot-task-definition-service-fzm1u0wt"
 $TASK_DEF_FAMILY = "bb-chatbot-task-definition"
 $TASK_DEF_FILE = "ecs-task-def.json"
 
